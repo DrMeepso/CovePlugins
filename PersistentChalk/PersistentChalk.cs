@@ -13,6 +13,8 @@ namespace PersistentChalk
 
         private const string ChalkFile = "chalk.json";
 
+        private static JsonSerializerOptions jsonOptions = new JsonSerializerOptions { IncludeFields = true};
+
         public override void onInit()
         {
             base.onInit();
@@ -58,7 +60,8 @@ namespace PersistentChalk
         public void loadChalk(byte[] chalkData)
         {
             // deserialize the chalk data
-            List<ChalkCanvas> chalk = JsonSerializer.Deserialize<List<ChalkCanvas>>(chalkData);
+            var chalk = JsonSerializer.Deserialize<List<ChalkCanvas>>(chalkData, jsonOptions);
+
             if (chalk != null)
             {
                 // set the chalk data to the server's chalk data
@@ -76,7 +79,7 @@ namespace PersistentChalk
             List<ChalkCanvas> chalkData = ParentServer.chalkCanvas;
 
             // use the json formatter to serialize the chalk data
-            string json = JsonSerializer.Serialize(chalkData);
+            string json = JsonSerializer.Serialize(chalkData, jsonOptions);
 
             // write the json string to a file
             File.WriteAllText(Path.Combine(currentDir, ChalkFile), json);
