@@ -11,5 +11,9 @@
   <ItemGroup>
     <EmbeddedResource Include="plugin.cfg"></EmbeddedResource>
   </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\WebFishingCove\Cove\Cove.csproj" />
+  </ItemGroup>
   
 </Project>

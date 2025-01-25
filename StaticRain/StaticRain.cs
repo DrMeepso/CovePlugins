@@ -12,9 +12,11 @@ namespace StaticRain
 
         internal RainCloud docksRain;
         internal RainCloud lakeRain;
+        internal RainCloud voidRain;
 
         public Vector3 docksPosition = new Vector3(151f, 42, 1.5f);
         public Vector3 lakePosition = new Vector3(22.5f, 42, 13);
+        public Vector3 voidPosition = new Vector3(-295f, 42, -399f);
 
         public RainCloud spawnRainCloud()
         {
@@ -51,6 +53,14 @@ namespace StaticRain
                 lakeRain.pos = lakePosition;
             }
 
+            if (!ParentServer.serverOwnedInstances.Contains(voidRain))
+            {
+                // the rain cloud has been destroyed / despawned
+                voidRain = spawnRainCloud();
+                voidRain.isStaic = true;
+                voidRain.pos = voidPosition;
+            }
+
         }
 
         public override void onEnd()
@@ -60,6 +70,7 @@ namespace StaticRain
             // remove the actors when the server reloads
             RemoveServerActor(docksRain);
             RemoveServerActor(lakeRain);
+            RemoveServerActor(voidRain);
 
         }
 
