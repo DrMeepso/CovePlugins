@@ -38,7 +38,8 @@ namespace ChalkLogs
 
                 if (type.ToString() == "chalk_packet")
                 {
-                    File.AppendAllText("chalkLogs.txt", $"[{DateTime.Now}] {sender.Username} sent a chalk packet!\n");
+                    long canvasID = (long)packet["canvas_id"];
+                    File.AppendAllText("chalkLogs.txt", $"[{DateTime.Now}] {sender.Username} [{sender.SteamId}] Used chalk on canvas {canvasID}\n");
                 }
 
             }
