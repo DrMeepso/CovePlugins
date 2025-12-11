@@ -1,16 +1,20 @@
-using Cove.Server.Plugins;
-using Cove.Server;
-using Cove.Server.Chalk;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Cove.GodotFormat;
+using Cove.Server;
+using Cove.Server.Chalk;
+using Cove.Server.Plugins;
 
 // Change the namespace and class name!
 namespace PersistentChalk
 {
     public class Vector2Converter : JsonConverter<Vector2>
     {
-        public override Vector2 Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        public override Vector2 Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options
+        )
         {
             var doc = JsonDocument.ParseValue(ref reader);
             var root = doc.RootElement;
@@ -21,7 +25,11 @@ namespace PersistentChalk
             return new Vector2(x, y);
         }
 
-        public override void Write(Utf8JsonWriter writer, Vector2 value, JsonSerializerOptions options)
+        public override void Write(
+            Utf8JsonWriter writer,
+            Vector2 value,
+            JsonSerializerOptions options
+        )
         {
             writer.WriteStartObject();
             writer.WriteNumber("X", value.x);
@@ -32,30 +40,50 @@ namespace PersistentChalk
 
     public class ChalkCanvasConverter : JsonConverter<ChalkCanvas>
     {
-        public override ChalkCanvas Read(ref Utf8JsonReader reader, Type typeToConvert, JsonSerializerOptions options)
+        private CoveServer parentServer;
+        private JsonSerializerOptions jsonOptions;
+
+        public ChalkCanvasConverter(CoveServer parentServer)
+            : base()
+        {
+            this.parentServer = parentServer;
+        }
+
+        public override ChalkCanvas Read(
+            ref Utf8JsonReader reader,
+            Type typeToConvert,
+            JsonSerializerOptions options
+        )
         {
             var doc = JsonDocument.ParseValue(ref reader);
             var root = doc.RootElement;
 
             long canvasID = root.GetProperty("CanvasID").GetInt64();
-            ChalkCanvas canvas = new ChalkCanvas(canvasID);
+            ChalkCanvas canvas = new ChalkCanvas(canvasID, this.parentServer);
 
             if (root.TryGetProperty("ChalkImage", out JsonElement chalkImageElement))
             {
-                var chalkImage = JsonSerializer.Deserialize<Dictionary<string, int>>(chalkImageElement.GetRawText(), options);
+                var chalkImage = JsonSerializer.Deserialize<Dictionary<string, long>>(
+                    chalkImageElement.GetRawText(),
+                    options
+                );
 
                 var deserializedChalkImage = chalkImage.ToDictionary(
                     kvp => JsonSerializer.Deserialize<Vector2>(kvp.Key, options),
                     kvp => kvp.Value
                 );
 
-                canvas.chalkImage = deserializedChalkImage;
+                canvas.chalkUpdate(deserializedChalkImage);
             }
 
             return canvas;
         }
 
-        public override void Write(Utf8JsonWriter writer, ChalkCanvas value, JsonSerializerOptions options)
+        public override void Write(
+            Utf8JsonWriter writer,
+            ChalkCanvas value,
+            JsonSerializerOptions options
+        )
         {
             writer.WriteStartObject();
 
@@ -78,7 +106,18 @@ namespace PersistentChalk
 
     public class PersistentChalk : CovePlugin
     {
-        public PersistentChalk(CoveServer server) : base(server) { }
+        private JsonSerializerOptions jsonOptions;
+
+        public PersistentChalk(CoveServer server)
+            : base(server)
+        {
+            this.jsonOptions = new JsonSerializerOptions
+            {
+                IncludeFields = true,
+                Converters = { new Vector2Converter(), new ChalkCanvasConverter(server) },
+            };
+        }
+
         private string currentDir = Directory.GetCurrentDirectory();
 
         private const string ChalkFile = "chalk.json";
@@ -93,30 +132,36 @@ namespace PersistentChalk
                 byte[] chalkData = File.ReadAllBytes(Path.Combine(currentDir, ChalkFile));
                 Log("Chalk data file found. Loading chalk data...");
                 loadChalk(chalkData);
-            } else
+            }
+            else
             {
                 // log that the chalk data file does not exist
                 Log("Cannot find chalk data file.");
             }
 
-            RegisterCommand("savechalk", (player, args) =>
-            {
-
-                if (!IsPlayerAdmin(player))
+            RegisterCommand(
+                "savechalk",
+                (player, args) =>
                 {
-                    SendPlayerChatMessage(player, "You do not have permission to use this command!");
-                    return;
+                    if (!IsPlayerAdmin(player))
+                    {
+                        SendPlayerChatMessage(
+                            player,
+                            "You do not have permission to use this command!"
+                        );
+                        return;
+                    }
+
+                    saveChalk();
+                    SendPlayerChatMessage(player, "The chalk has been saved!");
                 }
-
-                saveChalk();
-                SendPlayerChatMessage(player, "The chalk has been saved!");
-            });
+            );
             SetCommandDescription("savechalk", "Saves the chalk data");
-
         }
 
         public long lastUpdate = DateTimeOffset.UtcNow.ToUnixTimeSeconds(); // now
         public bool hadOfflineUpdate = false;
+
         public override void onUpdate()
         {
             base.onUpdate();
@@ -151,12 +196,6 @@ namespace PersistentChalk
             UnregisterCommand("savechalk");
         }
 
-        private static JsonSerializerOptions jsonOptions = new JsonSerializerOptions
-        {
-            IncludeFields = true,
-            Converters = { new Vector2Converter(), new ChalkCanvasConverter()}
-        };
-
         public void loadChalk(byte[] chalkData)
         {
             // deserialize the chalk data
@@ -166,7 +205,8 @@ namespace PersistentChalk
                 // set the chalk data to the server's chalk data
                 ParentServer.chalkCanvas = chalk;
                 Log("Restored Chalk Data");
-            } else
+            }
+            else
             {
                 Log("Failed to restore chalk data, chalk file is corrupt");
             }
@@ -178,7 +218,7 @@ namespace PersistentChalk
             List<ChalkCanvas> chalkData = new List<ChalkCanvas>(ParentServer.chalkCanvas);
 
             // use the json formatter to serialize the chalk data
-            string json = JsonSerializer.Serialize(chalkData, jsonOptions);
+            string json = JsonSerializer.Serialize(chalkData, this.jsonOptions);
 
             // write the json string to a file
             File.WriteAllText(Path.Combine(currentDir, ChalkFile), json);
