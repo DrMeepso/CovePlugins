@@ -1,14 +1,14 @@
-﻿using Cove.Server.Plugins;
-using Cove.Server;
+﻿using Cove.Server;
 using Cove.Server.Actor;
-
+using Cove.Server.Plugins;
 
 // Change the namespace and class name!
 namespace ChalkLogs
 {
     public class ChalkLogs : CovePlugin
     {
-        public ChalkLogs(CoveServer server) : base(server) { }
+        public ChalkLogs(CoveServer server)
+            : base(server) { }
 
         public override void onInit()
         {
@@ -21,30 +21,19 @@ namespace ChalkLogs
             {
                 File.Create("chalkLogs.txt");
             }
-
         }
 
-        public override void onNetworkPacket(WFPlayer sender, Dictionary<string, object> packet)
+        public override void onChalkUpdate(
+            WFPlayer? sender,
+            long canvasID,
+            Dictionary<int, object> packet
+        )
         {
-            base.onNetworkPacket(sender, packet);
-
-            object type;
-            if (packet.TryGetValue("type", out type))
-            { 
-            
-                // there was a error of some sort and just ignore the packet
-                if (typeof(string) != type.GetType())
-                    return;
-
-                if (type.ToString() == "chalk_packet")
-                {
-                    long canvasID = (long)packet["canvas_id"];
-                    File.AppendAllText("chalkLogs.txt", $"[{DateTime.Now}] {sender.Username} [{sender.SteamId}] Used chalk on canvas {canvasID}\n");
-                }
-
-            }
-
+            base.onChalkUpdate(sender, canvasID, packet);
+            File.AppendAllText(
+                "chalkLogs.txt",
+                $"[{DateTime.Now}] {sender.Username} [{sender.SteamId}] Used chalk on canvas {canvasID}\n"
+            );
         }
-
     }
 }
